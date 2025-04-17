@@ -1,0 +1,118 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_passwd
+      POSTGRESQL_ENABLE_TLS: "yes"
+      POSTGRESQL_TLS_CERT_FILE: /ssl/local.crt
+      POSTGRESQL_TLS_KEY_FILE: /ssl/local.key
+      POSTGRESQL_TLS_CA_FILE: /ssl/ca.crt
+    volumes:
+      - /home/keycloak/pgdata:/var/lib/postgresql/data
+      - /home/keycloak/kc_init.sql:/docker-entrypoint-initdb.d/kc_init.sql
+      - type : bind
+        source : ${SRC_CERT}
+        target : /ssl/local.crt
+      - type : bind
+        source : ${SRC_KEY}
+        target : /ssl/local.key
+      - type : bind
+        source : ${SRC_CACERT}
+        target : /ssl/ca.crt
+    ports:
+      - $POSTGRES_PORT:5432
+    restart: on-failure
+    secrets:
+      - pg_passwd
+
+#  pgadmin:
+#    image: dpage/pgadmin4:latest
+#    depends_on:
+#      - postgres
+#    environment:
+#      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+#      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+#      PGADMIN_CONFIG_SERVER_MODE: 'False'
+#    volumes:
+#      - /home/keycloak/pgadmin:/var/lib/pgadmin
+#    ports:
+#      - ${PGADMIN_PORT}:80
+#  
+  keycloak:
+    image: bitnami/keycloak:latest
+    environment:
+      KEYCLOAK_ADMIN: $KC_ADMIN
+      KEYCLOAK_ADMIN_PASSWORD: /run/secrets/kc_passwd
+      KEYCLOAK_DATABASE_VENDOR: postgresql
+      KEYCLOAK_DATABASE_HOST: $HOST_NAME
+      KEYCLOAK_DATABASE_PORT: $POSTGRES_PORT
+      KEYCLOAK_DATABASE_USER: $POSTGRES_USER
+      KEYCLOAK_DATABASE_NAME: $POSTGRES_DB
+      KEYCLOAK_DATABASE_PASSWORD_FILE: /run/secrets/pg_passwd
+      KEYCLOAK_LOG_LEVEL: $LOG_LEVEL
+      KEYCLOAK_ROOT_LOG_LEVEL: $LOG_LEVEL
+      KEYCLOAK_PRODUCTION: "true"
+      KEYCLOAK_ENABLE_HTTPS: "true"
+      KEYCLOAK_HTTPS_USE_PEM: "true"
+      KEYCLOAK_HTTPS_CERTIFICATE_FILE: /ssl/local.crt
+      KEYCLOAK_HTTPS_CERTIFICATE_KEY_FILE: /ssl/local.key
+    volumes: 
+      - type : bind
+        source : ${SRC_CERT}
+        target : /ssl/local.crt
+      - type : bind
+        source : ${SRC_KEY}
+        target : /ssl/local.key
+      - type : bind
+        source : /home/keycloak/kc_entrypoint.sh
+        target : /entrypoint.sh
+    restart :  on-failure
+    ports:
+      - 8443:8443
+    depends_on:
+      - postgres
+      - ldap
+    secrets:
+      - pg_passwd
+      - kc_passwd
+#   command: 'start --https-certificate-file=/local.crt --https-certificate-key-file=/local.key --hostname=${HOST_NAME}'
+    
+  ldap:
+    image: bitnami/openldap:latest
+    environment:
+      - LDAP_ADMIN_USERNAME=$LDAP_USER
+      - LDAP_ADMIN_PASSWORD_FILE=/run/secrets/ol_passwd
+      - LDAP_ROOT=$LDAP_ROOT
+      - LDAP_ADMIN_DN=$LDAP_ADMIN_DN
+      - LDAP_ENABLE_TLS=yes
+      - LDAP_REQUIRE_TLS=yes
+      - LDAP_LDAPS_PORT_NUMBER=1636
+      - LDAP_TLS_CERT_FILE=/ssl/local.crt
+      - LDAP_TLS_KEY_FILE=/ssl/local.key
+      - LDAP_TLS_CA_FILE=/ssl/ca.crt
+      - LDAP_CUSTOM_LDIF_DIR=/ldif
+    secrets:
+      - ol_passwd
+    volumes: 
+      - type : bind
+        source : ${SRC_CERT}
+        target : /ssl/local.crt
+      - type : bind
+        source : ${SRC_CACERT}
+        target : /ssl/ca.crt
+      - type : bind
+        source : ${SRC_KEY}
+        target : /ssl/local.key
+      - type : bind
+        source : /home/keycloak/ldif
+        target : /ldif
+    ports:
+      - 1636:1636
+secrets:
+  pg_passwd:
+    file: /home/keycloak/secrets/pg_passwd.txt
+  ol_passwd:
+    file: /home/keycloak/secrets/ol_passwd.txt
+  kc_passwd:
+    file: /home/keycloak/secrets/kc_passwd.txt

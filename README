@@ -1,0 +1,24 @@
+TLS setup
+---------
+The keycloak instance may use TLS. For this, you need to provide a certificate,a key file, and the CA certificate used to create that pair.
+1/ set the appropriate environment variables (KC_HTTPS_CERTIFICATE_FILE,KC_HTTPS_CERTIFICATE_KEY_FILE) accordingly in the .env file.
+2/ import the corresponding CA certificate within the browser allowed CAs list.
+It is also possible to run without TLS : just comment out KC_HTTPS_CERTIFICATE_FILE and KC_HTTPS_CERTIFICATE_KEY_FILE in compose.yml.
+
+For Postgres, the same variables are used, plus the ca.crt that must also be declared. If no TLS is necessary, set POSTGRES_ENABLE_TLS to "no" in compose.yaml.
+
+FIRST RUN
+- create a keycloak user, with its home group. It should be sudo-authorized.
+- Download compose.yml, .env, kc_init.sh, kc_entrypoint.sh.
+- Customize .env to taste.
+- create a "secrets" directory and a pg_passwd.txt file : "echo 'pwd' > secrets/pg_passswd.txt.
+- docker-compose up.
+- The postgres container creates automatically its database in /home/keycloak/pgdata.
+- The keycloak admin software is reachable at https://<hostname>:8443
+
+RESET
+For postgres & keycloak : just remove the pgdata directory and restart the software.
+
+- mkdir pgadmin
+- chmod 777 pgadmin
+- docker-compose up
